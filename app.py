@@ -14,8 +14,13 @@ uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
 
+    # ✅ Clean column names
+    df.columns = df.columns.str.strip()
+
+    st.write("✅ Columns detected:", df.columns)
+
     # -------------------------------
-    # SELECT COLUMNS
+    # COLUMN SELECTION
     # -------------------------------
     st.subheader("⚙️ Configuration")
 
@@ -27,16 +32,15 @@ if uploaded_file:
     with col3:
         segment_col = st.selectbox("Select Segment Column", df.columns)
 
-    # Convert types
-    df[date_col] = pd.to_datetime(df[date_col])
+    # Convert types safely
+    df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
     df[metric_col] = pd.to_numeric(df[metric_col], errors="coerce")
 
     # -------------------------------
-    # SIDEBAR FILTERS ✅
+    # SIDEBAR FILTERS
     # -------------------------------
     st.sidebar.header("🔍 Filters")
 
-    # Date filter
     min_date = df[date_col].min()
     max_date = df[date_col].max()
 
@@ -45,7 +49,6 @@ if uploaded_file:
         [min_date, max_date]
     )
 
-    # Segment filter
     segments = df[segment_col].dropna().unique()
 
     selected_segments = st.sidebar.multiselect(
@@ -55,37 +58,46 @@ if uploaded_file:
     )
 
     # -------------------------------
-    # APPLY FILTERS
+    # ✅ SAFE FILTERING (FIXED)
     # -------------------------------
-    filtered_df = df[
-        (df[date_col] >= pd.to_datetime(date_range[0])) &
-        (df[date_col] <= pd.to_datetime(date_range[1])) &
-        (df[segment_col].isin(selected_segments))
-    ]
+    if date_range and len(date_range) == 2:
+        filtered_df = df[
+            (df[date_col] >= pd.to_datetime(date_range[0])) &
+            (df[date_col] <= pd.to_datetime(date_range[1])) &
+            (df[segment_col].isin(selected_segments))
+        ]
+    else:
+        filtered_df = df.copy()
 
     # -------------------------------
     # KPI SECTION
     # -------------------------------
     st.subheader("📌 Key Metrics")
 
-    col1, col2 = st.columns(2)
-    col1.metric("Total", f"{filtered_df[metric_col].sum():,.0f}")
-    col2.metric("Average", f"{filtered_df[metric_col].mean():,.0f}")
+    if metric_col in filtered_df.columns and len(filtered_df) > 0:
+        col1, col2 = st.columns(2)
+        col1.metric("Total", f"{filtered_df[metric_col].sum():,.0f}")
+        col2.metric("Average", f"{filtered_df[metric_col].mean():,.0f}")
+    else:
+        st.warning("No data available for KPIs")
 
     # -------------------------------
     # CHARTS
     # -------------------------------
     st.subheader("📈 Trend Analysis")
 
-    trend = filtered_df.groupby(date_col)[metric_col].sum().reset_index()
-    fig = px.line(trend, x=date_col, y=metric_col, title="Trend Over Time")
-    st.plotly_chart(fig, use_container_width=True)
+    if len(filtered_df) > 0:
+        trend = filtered_df.groupby(date_col)[metric_col].sum().reset_index()
+        fig = px.line(trend, x=date_col, y=metric_col, title="Trend Over Time")
+        st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("📊 Segment Breakdown")
+        st.subheader("📊 Segment Breakdown")
 
-    breakdown = filtered_df.groupby(segment_col)[metric_col].sum().reset_index()
-    fig2 = px.bar(breakdown, x=segment_col, y=metric_col, title="By Segment")
-    st.plotly_chart(fig2, use_container_width=True)
+        breakdown = filtered_df.groupby(segment_col)[metric_col].sum().reset_index()
+        fig2 = px.bar(breakdown, x=segment_col, y=metric_col, title="By Segment")
+        st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.warning("No data available after filtering")
 
     # -------------------------------
     # ANOMALY DETECTION
@@ -97,4 +109,4 @@ if uploaded_file:
         anomalies = filtered_df[filtered_df["z_score"].abs() > 3]
         st.dataframe(anomalies)
     else:
-        st.write("No data available after filtering.")
+        st.write("No anomalies detected")
