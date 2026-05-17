@@ -63,16 +63,18 @@ if uploaded_file:
     # -------------------------------
     # SAFE FILTERING ✅
     # -------------------------------
-    if date_range and isinstance(date_range, tuple) and len(date_range) == 2:
-        start_date, end_date = date_range
+    # SAFE FILTERING ✅
+ if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
+    start_date = date_range[0]
+    end_date = date_range[1]
 
-        filtered_df = df[
-            (df[date_col] >= pd.to_datetime(start_date)) &
-            (df[date_col] <= pd.to_datetime(end_date)) &
-            (df[segment_col].isin(selected_segments))
-        ]
-    else:
-        filtered_df = df.copy()
+    filtered_df = df[
+        (df[date_col] >= pd.to_datetime(start_date)) &
+        (df[date_col] <= pd.to_datetime(end_date)) &
+        (df[segment_col].isin(selected_segments))
+    ]
+ else:
+    filtered_df = df.copy()
 
     # -------------------------------
     # KPI SECTION ✅
