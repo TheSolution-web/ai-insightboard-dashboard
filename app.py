@@ -17,8 +17,6 @@ if uploaded_file:
     # ✅ Clean column names
     df.columns = df.columns.str.strip()
 
-    st.write("✅ Columns detected:", df.columns)
-
     # -------------------------------
     # COLUMN SELECTION
     # -------------------------------
@@ -32,21 +30,26 @@ if uploaded_file:
     with col3:
         segment_col = st.selectbox("Select Segment Column", df.columns)
 
-    # Convert types safely
+    # -------------------------------
+    # DATA CLEANING ✅
+    # -------------------------------
     df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
     df[metric_col] = pd.to_numeric(df[metric_col], errors="coerce")
 
+    # Remove invalid dates
+    df = df.dropna(subset=[date_col])
+
     # -------------------------------
-    # SIDEBAR FILTERS
+    # SIDEBAR FILTERS ✅
     # -------------------------------
     st.sidebar.header("🔍 Filters")
 
-    min_date = df[date_col].min()
-    max_date = df[date_col].max()
+    min_date = df[date_col].min().date()
+    max_date = df[date_col].max().date()
 
     date_range = st.sidebar.date_input(
         "📅 Select Date Range",
-        [min_date, max_date]
+        value=(min_date, max_date)
     )
 
     segments = df[segment_col].dropna().unique()
@@ -58,19 +61,21 @@ if uploaded_file:
     )
 
     # -------------------------------
-    # ✅ SAFE FILTERING (FIXED)
+    # SAFE FILTERING ✅
     # -------------------------------
-    if date_range and len(date_range) == 2:
+    if date_range and isinstance(date_range, tuple) and len(date_range) == 2:
+        start_date, end_date = date_range
+
         filtered_df = df[
-            (df[date_col] >= pd.to_datetime(date_range[0])) &
-            (df[date_col] <= pd.to_datetime(date_range[1])) &
+            (df[date_col] >= pd.to_datetime(start_date)) &
+            (df[date_col] <= pd.to_datetime(end_date)) &
             (df[segment_col].isin(selected_segments))
         ]
     else:
         filtered_df = df.copy()
 
     # -------------------------------
-    # KPI SECTION
+    # KPI SECTION ✅
     # -------------------------------
     st.subheader("📌 Key Metrics")
 
@@ -82,7 +87,7 @@ if uploaded_file:
         st.warning("No data available for KPIs")
 
     # -------------------------------
-    # CHARTS
+    # CHARTS ✅
     # -------------------------------
     st.subheader("📈 Trend Analysis")
 
@@ -100,7 +105,7 @@ if uploaded_file:
         st.warning("No data available after filtering")
 
     # -------------------------------
-    # ANOMALY DETECTION
+    # ANOMALY DETECTION ✅
     # -------------------------------
     st.subheader("⚠️ Anomalies")
 
